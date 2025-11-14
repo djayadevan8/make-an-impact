@@ -1,0 +1,135 @@
+%Part 4
+cd '/Users/dhiyajayadevan/Downloads/homework/lss/Project 1 (Report)';
+
+
+% setting variables
+fs = 10^5;
+c = 343; % m/s
+t = 0:(1/fs):2;
+A = 2.5; %m
+B = 200;
+L = 120;
+
+% taking top mic as 1 and bottom as 2
+delay1 = (1/c)*(sqrt((B)^2 + (L-A)^2));
+delay2 = (1/c)*(sqrt((B)^2 + (L-2*A)^2));
+thetaHat = asin(abs(delay1 - delay2)/(A/c));
+
+% signal 
+signal = @(t) 100*cos(10000*pi.*t) .* ((t>0) .* (t<=1));
+%figure();
+%plot(t, signal(t));
+
+
+
+
+% Part A
+[y1, y2] = lab1sim(A, B, L, signal);
+y1_t = y1(t);
+y2_t = y2(t);
+
+figure();
+
+% generating noise
+%w1 = randn(size(y1_t)); % same size as y1, y2 t -- these do provide arrays with random values
+%w2 = randn(size(y2_t));
+
+% creating z1, z2 sigma = sqrt(150); z1 = y1_t + sigma*w1; z2 = y2_t + sigma*w2;
+
+% inputting into lab1est [thetaest, Lest] = lab1est(A, B, z1, z2, fs);
+
+% relative error relError = abs(L - Lest)
+
+N = zeros(1,100); E = zeros(1,100); sum=0;
+for i = 1:100
+   sd = sqrt(150); w1 = randn(size(y1_t)); w2 = randn(size(y2_t));
+   z1 = y1_t + sd*w1; z2 = y2_t + sd*w2;
+   [~, L_hat] = lab1est(A,B,z1,z2,fs);
+   N(1,i) = L_hat; E(1,i) = abs(L - L_hat);
+
+   sum = sum + E(1,i);
+end
+
+disp(min(E(1,:))); disp(max(E(1,:)));
+
+disp(sum/100);
+
+
+
+% Part B
+sigmaSq = 10:10:120;
+outArray = zeros(100,12);
+
+for i=1:length(sigmaSq)
+    
+    sigmaTest = sqrt(sigmaSq(i));
+
+    for j=1:100
+
+        w1 = randn(size(y1_t)); 
+        w2 = randn(size(y2_t));
+
+        z1Test = y1_t + sigmaTest*w1; 
+        z2Test = y2_t + sigmaTest*w2;
+
+        [thetaestB, LestB] = lab1est(A, B, z1Test, z2Test, fs); 
+
+        outArray(j,i) = LestB;
+
+    end
+end
+
+save("partBProject1b.mat", "outArray");
+disp(outArray);
+
+% Part C
+sigmaSq = 10:10:120; % x values
+averageMSE = zeros(1,12);
+stdDevMSE = zeros(1,12);
+sumCol=zeros(1,12);
+
+% MSE values
+N = zeros(100,12); E = zeros(100,12); 
+
+for i=1:length(sigmaSq)
+    for j=1:100
+        N(j,i) = outArray(j,i); E(j,i) = (outArray(j,i) - L)^2;
+        %sumCol(i) = sumCol(i) + outArray(j,i);
+        
+    end
+
+    averageMSE(i) = mean(E(:,i));            % mean squared error
+    
+    % standard deviation of MSE
+
+end
+
+lam = zeros(100,12);
+for j = 1:100
+   for i = 1:12
+       lam(j,i) = (E(j,i) - averageMSE(i))^2;
+   end
+end
+%%
+dev = zeros(1,12);
+for i = 1:12
+   dev(i) = sqrt(mean(lam(:,i)));   % std dev of squared error
+end
+
+
+
+figure();
+plot(sigmaSq,averageMSE);
+title("Average MSE vs variance");
+xlabel("variance"); ylabel("Average Mean Squared Error");
+grid on;
+
+
+figure();
+errorbar(sigmaSq, averageMSE, dev);
+xlabel("variance"); ylabel("Average Mean Squared Error");
+title("Average MSE vs variance with error level");
+
+
+
+
