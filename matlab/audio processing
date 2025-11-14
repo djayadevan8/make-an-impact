@@ -1,0 +1,84 @@
+%part 1
+[y, Fs] = audioread('ganymede.wav');
+first_array = y(:,1);
+num_samples = length(y);
+duration= num_samples/Fs;
+
+disp("The sampling rate is " + Fs + " Hz.");
+disp("The duration is " + duration +" s.");
+
+soundsc(first_array, Fs);
+
+%part 2
+t=0:(1/Fs):((length(y)-1)/Fs);
+plot(t, y(:,1), 'b');
+hold on;
+plot(t, y(:,2), 'r');
+xlabel ('time(s)'); ylabel ('amplitude');
+title('Ganymede Waveform');
+
+%part 3
+[max_mag1, idx1]=max(y(:,1));
+[max_mag2, idx2]=max(y(:,2));
+
+%finding max mag and timestamps
+if (max_mag1>max_mag2) 
+    max_mag=max_mag1;
+    y_max_idx=t(idx1);
+    y_min= max_mag2;
+
+else
+    max_mag=max_mag2;
+    y_max_idx=t(idx2);
+end
+
+disp("The max magnitude is " + max_mag + " at " + y_max_idx + ".");
+
+
+%part 4
+window = (t >= 30) & (t <= 37);
+
+t_clip = t(window);
+y_clip = y(window,:);
+
+%calculating energy
+y_abs = abs(y_clip(:,1));
+y_abs_squared = y_abs.^2;
+
+dt = 1/Fs;
+energy = sum(y_abs_squared) * dt;
+
+[y_max, idx_max] = max(y_abs);
+t_max = t_clip(idx_max);
+
+% Plot windowed signal
+figure;
+hold on;
+plot(t_clip, y_clip);
+plot(t_max, y_clip(idx_max,1), 'om', 'MarkerSize', 8, 'LineWidth', 2);
+hold off;
+
+
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('Windowed Signal');
+grid on;
+
+soundsc(y_clip(:,1),Fs);
+
+% Display results
+disp("The energy of channel 1 between 30–37 s is " + energy);
+disp("The max magnitude is " + y_max + " at " + t_max);
+
+
+%part 5
+
+
+clip = y(t >= 30 & t <= 37, 1);
+
+% Perform STFT
+figure;
+stft(clip, Fs, ...
+    'Window', hamming(512), ...   % same style of window
+    'OverlapLength', 256, ...
+    'FFTLength', 1024);
