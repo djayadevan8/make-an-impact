@@ -1,0 +1,200 @@
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import java.security.SecureRandom;
+import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
+
+public class Question2 {
+
+    // Part A
+
+    //padder
+    public static byte[] pad(byte[] data, int blockSize) {
+        int padLen = blockSize - (data.length % blockSize);
+        if (padLen == 0) padLen = blockSize;
+
+        byte[] padded = Arrays.copyOf(data, data.length + padLen);
+        Arrays.fill(padded, data.length, data.length + padLen, (byte) padLen);
+        return padded;
+    }
+
+    //depadder
+    public static byte[] unpad(byte[] padded) {
+        int padLength = padded[padded.length - 1] & 0xFF;
+        byte[] result = new byte[padded.length - padLength];
+        System.arraycopy(padded, 0, result, 0, result.length);
+    
+        return result;
+
+    }
+
+    //Part B
+    public static byte[] aesBlock(byte[] key, byte[] block, int mode) throws Exception {
+        SecretKeySpec secretKey = new SecretKeySpec(key, "AES");
+        Cipher cipher = Cipher.getInstance("AES/ECB/NoPadding");
+        cipher.init(mode, secretKey);
+        return cipher.doFinal(block);
+    }
+
+
+
+    // ECB encrypt
+    public static byte[] ecbEncrypt(byte[] key, byte[] plaintext) throws Exception {
+        byte[] padded = pad(plaintext, 16); 
+        byte[] ciphertext = new byte[padded.length];
+
+        for (int i = 0; i < padded.length; i += 16) {
+            byte[] block = Arrays.copyOfRange(padded, i, i+16);
+            byte[] enc = aesBlock(key, block, Cipher.ENCRYPT_MODE);
+            System.arraycopy(enc, 0, ciphertext, i, 16);
+        }
+
+        return ciphertext;
+
+    }
+
+    //ECB Decrypt
+    public static byte[] ecbDecrypt(byte[] key, byte[] ciphertext) throws Exception {
+        byte[] plainPadded = new byte[ciphertext.length];
+
+        for (int i = 0; i < plainPadded.length; i += 16) {
+            byte[] block = Arrays.copyOfRange(ciphertext, i, i+16);
+            byte[] dec = aesBlock(key, block, Cipher.DECRYPT_MODE);
+            System.arraycopy(dec, 0, plainPadded, i, 16);
+
+        }
+
+        return unpad(plainPadded);
+
+    }
+
+
+    // CBC Encrypt
+    public static byte[] cbcEncrypt(byte[] key, byte[] plaintext, byte[] iv) throws Exception {
+        byte[] plainPadded = pad(plaintext, 16);
+        byte[] ciphertext = new byte[plainPadded.length];
+        byte[] prev = Arrays.copyOf(iv, 16);
+
+        for (int i=0; i<ciphertext.length; i+=16) {
+            byte[] block = Arrays.copyOfRange(plainPadded, i, i+16);
+
+            //xor process
+            for (int j = 0; j < 16; j++) block[j] ^= prev[j];
+
+            byte[] enc = aesBlock(key, block, Cipher.ENCRYPT_MODE);
+
+            System.arraycopy(enc, 0, ciphertext, i, 16);
+
+            prev = enc;
+        }
+
+            return ciphertext;
+
+            }
+    
+
+    //CBC Decrypt
+    public static byte[] cbcDecrypt(byte[] key, byte[] ciphertext, byte[] iv) throws Exception {
+        byte[] plainPadded = new byte[ciphertext.length];
+        byte[] prev = Arrays.copyOf(iv, 16);
+
+        for (int i=0; i<plainPadded.length; i+=16) {
+            byte[] block = Arrays.copyOfRange(ciphertext, i, i+16);
+
+
+            byte[] dec = aesBlock(key, block, Cipher.DECRYPT_MODE);
+            for (int j=0; j<16; j++) dec[j] ^= prev[j];
+            System.arraycopy(dec, 0, plainPadded, i, 16);
+            prev = block;
+
+        }
+
+        return unpad(plainPadded);
+    }
+
+    //Cipher feedback encrypt/decrypt
+    public static byte[] cfbEncrypt(byte[] key, byte[] plaintext, byte[] iv) throws Exception {
+
+    byte[] ivCFB = Arrays.copyOf(iv, 16);
+    byte[] ciphertext = new byte[plaintext.length];
+
+    for (int i = 0; i < plaintext.length; i += 16) {
+        int blockSize = Math.min(16, plaintext.length - i);
+
+        // Encrypt the current IV
+        byte[] enc = aesBlock(key, ivCFB, Cipher.ENCRYPT_MODE);
+
+        // XOR with plaintext
+        for (int j = 0; j < blockSize; j++) {
+            ciphertext[i + j] = (byte) (plaintext[i + j] ^ enc[j]);
+        }
+
+        // Update IV for next block (CFB shifts in ciphertext)
+        System.arraycopy(ciphertext, i, ivCFB, 0, blockSize);
+    }
+
+    return ciphertext;
+}
+
+
+
+
+    //OFB Encrypt/Decrypt
+    public static byte[] ofb(byte[] key, byte[] plaintext, byte[] iv) throws Exception {
+        //byte[] plainPadded = pad(plaintext, 16);
+        byte[] ciphertext = new byte[plaintext.length];
+        byte[] feedback = Arrays.copyOf(iv, 16);
+
+        for (int i=0; i<ciphertext.length; i+=16) {
+            int blockSize = Math.min(16, plaintext.length - i);
+
+            byte[] enc = aesBlock(key, feedback, Cipher.ENCRYPT_MODE);
+
+            for (int j = 0; j < blockSize; j++) {
+                ciphertext[i + j] = (byte) (plaintext[i + j] ^ enc[j]);
+            }
+            
+        feedback = enc;
+        }
+        return ciphertext;
+    }
+
+
+
+
+
+
+    // Counter encrypt/decrypt
+    public static byte[] ctr(byte[] key, byte[] plaintext, byte[] iv) throws Exception {
+        byte[] ivCTR = Arrays.copyOf(iv, 16);
+        //byte[] plainPadded = pad(plaintext,16);
+        byte[] ciphertext = new byte[plaintext.length];
+
+
+        for (int i=0; i<ciphertext.length; i+=16) {
+            int blockSize = Math.min(16, plaintext.length - i);
+            byte[] enc = aesBlock(key, ivCTR, Cipher.ENCRYPT_MODE);
+
+            for (int j=0;  j<blockSize; j++) {
+                ciphertext[i+j] = (byte) (plaintext[i + j] ^ enc[j]);
+            }
+
+            incrementCounter(ivCTR);
+        }
+
+        return(ciphertext);
+    }
+
+    public static void incrementCounter(byte[] counter) {
+    for (int i = counter.length - 1; i >= 0; i--) {
+        counter[i]++;
+        if (counter[i] != 0) break; // no carry, stop
+    }
+}
+
+}
+
+
+
+
+
